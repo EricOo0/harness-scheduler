@@ -28,6 +28,12 @@ class HarnessPaths:
         base = Path(data_dir).expanduser().resolve() if data_dir else root / ".harness"
         return cls(root=root, data_dir=base, workspace_root=base / "tasks", db_path=base / "harness.db")
 
+    def learning_exports_dir(self) -> Path:
+        return self.data_dir / "exports"
+
+    def learning_export_path(self, task_id: str) -> Path:
+        return self.learning_exports_dir() / f"{task_id}.learning.md"
+
 
 class SQLiteDatabase:
     def __init__(self, db_path: Path):

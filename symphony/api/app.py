@@ -25,7 +25,7 @@ class HarnessApp:
         self.store = LocalTaskStore(paths.db_path)
         self.artifacts = ArtifactFileManager(paths)
         self.comments = ArtifactCommentManager(self.artifacts)
-        self.prompt_builder = PromptBuilder(self.store)
+        self.prompt_builder = PromptBuilder(self.store, self.paths)
         self.agent_runtime = AgentRuntime(store=self.store, artifacts=self.artifacts)
         self.scheduler = SchedulerRuntime(
             store=self.store,
@@ -72,9 +72,9 @@ class HarnessApp:
         content = self.artifacts.read(task["artifact_path"])
         learning_html = self._extract_section(content, "learning") or "<p>(暂无沉淀)</p>"
         markdown = self._html_section_to_markdown(learning_html)
-        export_dir = self.paths.data_dir / "exports"
+        export_path = self.paths.learning_export_path(task["id"])
+        export_dir = export_path.parent
         export_dir.mkdir(parents=True, exist_ok=True)
-        export_path = export_dir / f"{task['id']}.learning.md"
         body = (
             f"# {task['title']}\n\n"
             f"- 任务 ID: {task['id']}\n"

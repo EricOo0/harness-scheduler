@@ -6,12 +6,14 @@ from pathlib import Path
 from typing import Any
 
 from symphony.domain.workflow import ALLOWED_NEXT_STATUSES, STAGES
+from symphony.storage.db import HarnessPaths
 from symphony.storage.task_store import LocalTaskStore
 
 
 class PromptBuilder:
-    def __init__(self, store: LocalTaskStore):
+    def __init__(self, store: LocalTaskStore, paths: HarnessPaths):
         self.store = store
+        self.paths = paths
 
     def build(self, task: dict[str, Any]) -> str:
         stage = task["phase"]
@@ -45,10 +47,11 @@ class PromptBuilder:
 请遵守以下系统约束：
 - Artifact 是真实 HTML 文件，必须直接读取并编辑指定路径。
 - 评论也是 HTML 的一部分，不要把评论迁移到外部系统。
-- 浏览器运行时由服务端渲染时注入；artifact.html 持久化文件中只应保留正文、导航和 script#harness-comments。
-- 不要新增 script/style/on* 事件处理器；只允许维护 script#harness-comments(type=application/json) 中的评论状态。
+- 浏览器运行时由服务端渲染时注入；artifact.html 持久化文件中只应保留正文、导航、script#harness-comments 和 script#harness-render-assets。
+- 不要新增 script/style/on* 事件处理器；只允许维护 script#harness-comments(type=application/json) 中的评论状态，以及 script#harness-render-assets(type=application/json) 中的渲染资源。
 - 不要修改 aside#harness-section-nav。
 - 不要删除 7 个主 section。
+- 如需画流程图/架构图/状态图，在正文位置写 <div data-render="mermaid" data-diagram-id="唯一ID"></div>，并在 script#harness-render-assets 的 mermaid 数组中维护同 ID 的 {{id,title,source}}；不要使用 <pre data-render="mermaid">，不要引入 Mermaid 脚本或保存渲染后的 SVG。
 - 信息不足时先写清楚缺口，不要猜测需求、仓库、分支或验证方式。
 - 当前运行在全自动权限模式；不要等待人工审批，能执行就直接执行，不能执行就写明阻塞原因。
 
@@ -67,6 +70,7 @@ HTML 产物路径：{task['artifact_path']}
 - 正文锚点：mark[data-comment-anchor-id]，旧产物可能仍有 mark[data-comment-id]
 - 评论数据：script#harness-comments(type=application/json)，comments 是主对象，anchors 是可选展示锚点
 - 必须优先处理 status=pending 的评论；处理完成后把对应 comment.status 更新为 done，并同步该 anchor/mark 的 data-comment-status。
+- Mermaid 图表：正文只写 <div data-render="mermaid" data-diagram-id="..."></div> 占位符；源码只写入 script#harness-render-assets(type=application/json) 的 mermaid 数组 source 字段，source 是 JSON 字符串，换行使用 \\n。
 
 本阶段重点修改模块：
 {chr(10).join(f'- section#{section}' for section in sections)}
@@ -135,8 +139,8 @@ HTML 产物路径：{task['artifact_path']}
         return lines
 
     def _learning_export_path(self, task: dict[str, Any]) -> str:
-        workspace = task.get("workspace_path") or ""
-        return f"{workspace}/learning.md" if workspace else "未配置"
+        task_id = str(task.get("id") or "").strip()
+        return str(self.paths.learning_export_path(task_id)) if task_id else "未配置"
 
     def _pending_comments_block(self, task: dict[str, Any], editable_sections: list[str]) -> str:
         artifact_path = task.get("artifact_path")

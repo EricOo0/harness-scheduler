@@ -32,6 +32,9 @@
     code { background:#f2f4f7; border-radius:6px; padding:2px 6px; }
     mark[data-comment-id], mark[data-comment-anchor-id] { background:#fef3c7; border-bottom:2px solid var(--orange); cursor:pointer; padding:1px 3px; border-radius:4px; }
     mark[data-comment-status="done"] { background:#dcfce7; border-bottom-color:var(--green); }
+    [data-render="mermaid"][data-diagram-id] { background:#f8fafc; border:1px solid var(--border); border-radius:14px; padding:16px; overflow:auto; min-height:96px; }
+    .harness-mermaid-rendered { background:#fff; border:1px solid var(--border); border-radius:14px; padding:16px; overflow:auto; }
+    .harness-mermaid-error { color:#b42318; background:#fef3f2; border:1px solid #fecdca; border-radius:10px; padding:8px 10px; margin:8px 0; font-size:13px; }
     .harness-comment-popover { position:absolute; z-index:9999; width:360px; background:#fff; border:2px solid var(--orange); border-radius:16px; box-shadow:var(--shadow); padding:14px; }
     .harness-comment-popover textarea { width:100%; min-height:96px; border:1px solid var(--border); border-radius:10px; padding:10px; font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
     .harness-comment-popover .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:10px; }
@@ -113,12 +116,18 @@
     {"comments":[],"anchors":[]}
   </script>
 
+  <script type="application/json" id="harness-render-assets">
+    {"version":1,"mermaid":[]}
+  </script>
+
   <script id="harness-artifact-runtime" data-agent-editable="false">
   (() => {
     const taskId = document.body.dataset.taskId;
+    const mermaidCdn = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
     let popover = null;
     let selectionTimer = null;
     let lastCommentTarget = null;
+    let mermaidLoading = null;
 
     function commentsData() {
       const node = document.getElementById('harness-comments');
@@ -146,7 +155,7 @@
       const clone = document.documentElement.cloneNode(true);
       clone.querySelectorAll('[data-harness-runtime-ui="true"]').forEach(el => el.remove());
       clone.querySelectorAll('script').forEach(script => {
-        if (!['harness-comments', 'harness-artifact-runtime'].includes(script.id)) script.remove();
+        if (!['harness-comments', 'harness-render-assets', 'harness-artifact-runtime'].includes(script.id)) script.remove();
       });
       const html = '<!doctype html>\n' + clone.outerHTML;
       ensureToolbar();
@@ -169,6 +178,91 @@
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error((data.error && data.error.message) || `请求失败：${response.status}`);
       return data;
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    }
+
+    function renderAssetsData() {
+      const node = document.getElementById('harness-render-assets');
+      let data;
+      try { data = JSON.parse(node?.textContent || '{"version":1,"mermaid":[]}'); }
+      catch { data = { version: 1, mermaid: [] }; }
+      if (!Array.isArray(data.mermaid)) data.mermaid = [];
+      return data;
+    }
+
+    function mermaidAssetMap() {
+      const map = new Map();
+      renderAssetsData().mermaid.forEach(asset => {
+        if (asset && asset.id) map.set(String(asset.id), asset);
+      });
+      return map;
+    }
+
+    function showMermaidStatus(target, message, isError = false) {
+      let status = target.querySelector(':scope > .harness-mermaid-error');
+      if (!status) {
+        status = document.createElement('div');
+        status.className = 'harness-mermaid-error';
+        target.appendChild(status);
+      }
+      status.textContent = message;
+      status.style.display = message ? 'block' : 'none';
+      status.style.color = isError ? '#b42318' : '#344054';
+    }
+
+    function loadMermaid() {
+      if (window.mermaid) return Promise.resolve(window.mermaid);
+      if (mermaidLoading) return mermaidLoading;
+      mermaidLoading = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = mermaidCdn;
+        script.async = true;
+        script.onload = () => window.mermaid ? resolve(window.mermaid) : reject(new Error('Mermaid 加载后未初始化'));
+        script.onerror = () => reject(new Error('Mermaid 资源加载失败'));
+        document.head.appendChild(script);
+      });
+      return mermaidLoading;
+    }
+
+    async function renderMermaidAssets() {
+      const targets = [...document.querySelectorAll('[data-render="mermaid"][data-diagram-id]')].filter(target => target.dataset.rendered !== 'true');
+      if (!targets.length) return;
+      const assets = mermaidAssetMap();
+      let mermaid;
+      try {
+        mermaid = await loadMermaid();
+        mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', flowchart: { htmlLabels: true } });
+      } catch (err) {
+        targets.forEach(target => {
+          showMermaidStatus(target, `Mermaid 渲染失败：${err.message}`, true);
+        });
+        return;
+      }
+      for (const [index, target] of targets.entries()) {
+        const diagramId = target.dataset.diagramId || '';
+        const asset = assets.get(diagramId);
+        const source = String(asset?.source || '').trim();
+        target.innerHTML = '';
+        showMermaidStatus(target, asset ? 'Mermaid 渲染中...' : `未找到 Mermaid asset：${diagramId}`, !asset);
+        if (!asset || !source) continue;
+        const id = `harness-mermaid-${taskId}-${Date.now()}-${index}`.replace(/[^a-zA-Z0-9_-]/g, '-');
+        try {
+          const result = await mermaid.render(id, source);
+          const rendered = document.createElement('div');
+          rendered.className = 'harness-mermaid-rendered';
+          rendered.dataset.harnessRuntimeUi = 'true';
+          rendered.innerHTML = result.svg;
+          target.innerHTML = '';
+          target.appendChild(rendered);
+          target.dataset.rendered = 'true';
+        } catch (err) {
+          target.innerHTML = `<strong>${escapeHtml(asset.title || diagramId)}</strong><pre>${escapeHtml(source)}</pre>`;
+          showMermaidStatus(target, `Mermaid 语法错误：${err.message}`, true);
+        }
+      }
     }
 
     function selectionContext(section, range, quote) {
@@ -403,6 +497,7 @@
       saveButton.onclick = () => persist().catch(err => toast(`保存失败：${err.message}`));
     }
     ensureToolbar();
+    renderMermaidAssets();
   })();
   </script>
 </body>

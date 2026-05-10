@@ -77,6 +77,12 @@ class ArtifactFileManager:
     def with_latest_runtime(self, content: str) -> str:
         template = self.template_path.read_text(encoding="utf-8")
         content = self.strip_runtime_shell(content)
+        if 'id="harness-render-assets"' not in content:
+            content = self._inject_before(
+                content,
+                '<script type="application/json" id="harness-comments">',
+                self._render_assets_block(),
+            )
         content = self._inject_head_block(content, self._protected_block(template, "harness-artifact-style"))
         content = self._inject_before(
             content,
@@ -115,6 +121,10 @@ class ArtifactFileManager:
         return match.group(0) if match else None
 
     @staticmethod
+    def _render_assets_block() -> str:
+        return '<script type="application/json" id="harness-render-assets">\n    {"version":1,"mermaid":[]}\n  </script>'
+
+    @staticmethod
     def _inject_head_block(content: str, block: str | None) -> str:
         if not block:
             return content
@@ -131,7 +141,7 @@ class ArtifactFileManager:
         def keep_only_harness_scripts(match: re.Match[str]) -> str:
             attrs = match.group(1)
             script_id = re.search(r"\bid\s*=\s*(['\"])(.*?)\1", attrs, flags=re.I)
-            if script_id and script_id.group(2) in {"harness-comments", "harness-artifact-runtime"}:
+            if script_id and script_id.group(2) in {"harness-comments", "harness-render-assets", "harness-artifact-runtime"}:
                 return match.group(0)
             return ""
 
@@ -142,6 +152,7 @@ class ArtifactFileManager:
         required = [
             'data-harness-artifact-version="1"',
             'id="harness-comments"',
+            'id="harness-render-assets"',
             'id="background"',
             'id="interaction"',
             'id="solution"',
@@ -153,7 +164,7 @@ class ArtifactFileManager:
         missing = [item for item in required if item not in content]
         if missing:
             raise ValueError("artifact html missing required markers: " + ", ".join(missing))
-        if re.search(r"<script\b(?![^>]*\bid=\"harness-comments\")", content, flags=re.I):
+        if re.search(r"<script\b(?![^>]*\bid=\"harness-(?:comments|render-assets)\")", content, flags=re.I):
             raise ValueError("artifact html contains unexpected script tag")
         if re.search(r"<[^>]+\son[a-z]+\s*=", content, flags=re.I):
             raise ValueError("artifact html contains inline event handler")
