@@ -14,3 +14,4 @@ logs/
 
 temp/
 workspaces/
+.harness/

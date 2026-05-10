@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="zh-CN" data-harness-artifact-version="1">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{TASK_TITLE}} - Harness Artifact</title>
+  <style id="harness-artifact-style" data-agent-editable="false">
+    :root { --bg:#f7f8fb; --panel:#fff; --text:#101828; --muted:#667085; --border:#e4e7ec; --blue:#3b82f6; --green:#12b76a; --orange:#f79009; --red:#f04438; --purple:#7c3aed; --shadow:0 18px 45px rgba(16,24,40,.08); }
+    * { box-sizing:border-box; }
+    body { margin:0; min-width:1180px; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.68; }
+    .artifact-shell { display:grid; grid-template-columns:280px 1fr; min-height:100vh; }
+    #harness-section-nav { position:sticky; top:0; height:100vh; overflow:auto; background:#fff; border-right:1px solid var(--border); padding:28px 22px; }
+    #harness-section-nav h1 { margin:0 0 6px; font-size:20px; }
+    #harness-section-nav p { margin:0 0 18px; color:var(--muted); font-size:13px; }
+    #harness-section-nav a { display:block; color:#344054; text-decoration:none; padding:9px 10px; border-radius:10px; font-size:14px; }
+    #harness-section-nav a:hover { background:#eff6ff; color:#1d4ed8; }
+    #harness-content { width:940px; padding:36px 48px 96px; }
+    section { position:relative; background:#fff; border:1px solid var(--border); border-radius:18px; padding:24px 26px; margin:22px 0; box-shadow:var(--shadow); }
+    section::before { content:attr(data-section); position:absolute; top:14px; right:18px; color:#98a2b3; font:12px SFMono-Regular,Menlo,monospace; }
+    h2 { margin:0 0 16px; font-size:24px; }
+    h3 { margin:24px 0 8px; font-size:17px; }
+    table { width:100%; border-collapse:collapse; border:1px solid var(--border); border-radius:12px; overflow:hidden; margin:12px 0; }
+    th,td { padding:10px 12px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; font-size:14px; }
+    th { background:#f9fafb; }
+    tr:last-child td { border-bottom:0; }
+    .comment-resolution-table { table-layout:fixed; }
+    .comment-resolution-table th, .comment-resolution-table td { white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+    .comment-resolution-table .col-id { width:20%; }
+    .comment-resolution-table .col-section { width:14%; }
+    .comment-resolution-table .col-quote { width:28%; }
+    .comment-resolution-table .col-feedback { width:38%; }
+    code { background:#f2f4f7; border-radius:6px; padding:2px 6px; }
+    mark[data-comment-id], mark[data-comment-anchor-id] { background:#fef3c7; border-bottom:2px solid var(--orange); cursor:pointer; padding:1px 3px; border-radius:4px; }
+    mark[data-comment-status="done"] { background:#dcfce7; border-bottom-color:var(--green); }
+    .harness-comment-popover { position:absolute; z-index:9999; width:360px; background:#fff; border:2px solid var(--orange); border-radius:16px; box-shadow:var(--shadow); padding:14px; }
+    .harness-comment-popover textarea { width:100%; min-height:96px; border:1px solid var(--border); border-radius:10px; padding:10px; font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    .harness-comment-popover .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:10px; }
+    .harness-comment-popover button, .harness-toolbar button { border:0; border-radius:10px; padding:8px 12px; cursor:pointer; font-weight:650; }
+    .primary { background:var(--blue); color:#fff; }
+    .secondary { background:#f2f4f7; color:#344054; }
+    .success { background:var(--green); color:#fff; }
+    .harness-toolbar { position:fixed; right:24px; bottom:24px; display:flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--border); border-radius:16px; padding:10px; box-shadow:var(--shadow); z-index:9998; }
+    .harness-toolbar .runtime-status { max-width:260px; color:var(--muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .harness-toast { position:fixed; right:24px; top:24px; background:#101828; color:#fff; border-radius:12px; padding:10px 14px; z-index:10000; font-size:13px; }
+  </style>
+</head>
+<body data-task-id="{{TASK_ID}}">
+  <div class="artifact-shell">
+    <aside id="harness-section-nav" data-agent-editable="false">
+      <h1>{{TASK_TITLE}}</h1>
+      <p>Harness Artifact · 评论和正文都保存在本 HTML 中</p>
+      <a href="#background">1. 背景区</a>
+      <a href="#interaction">2. 交互区</a>
+      <a href="#solution">3. 方案区</a>
+      <a href="#task-breakdown">4. 任务拆解区</a>
+      <a href="#validation">5. 验证与风险区</a>
+      <a href="#history">6. 交互历史区</a>
+      <a href="#learning">7. 经验沉淀区</a>
+    </aside>
+
+    <main id="harness-content">
+      <section id="background" data-section="background" data-agent-editable="true">
+        <h2>1. 背景区</h2>
+        <div data-block="background.original_task">
+          <h3>原始任务</h3>
+          <p>{{TASK_DESCRIPTION}}</p>
+        </div>
+        <div data-block="background.agent_exploration">
+          <h3>Agent 探索信息</h3>
+          <p>等待需求规划阶段补充。</p>
+        </div>
+      </section>
+
+      <section id="interaction" data-section="interaction" data-agent-editable="true">
+        <h2>2. 交互区</h2>
+        <p>等待 Agent 写入待确认问题、用户决策和讨论结论。</p>
+      </section>
+
+      <section id="solution" data-section="solution" data-agent-editable="true">
+        <h2>3. 方案区</h2>
+        <p>等待方案设计阶段生成方案。</p>
+      </section>
+
+      <section id="task-breakdown" data-section="task-breakdown" data-agent-editable="true">
+        <h2>4. 任务拆解区</h2>
+        <p>等待任务拆解阶段生成任务列表、依赖关系和预估耗时。</p>
+      </section>
+
+      <section id="validation" data-section="validation" data-agent-editable="true">
+        <h2>5. 验证与风险区</h2>
+        <p>等待 Agent 补充验证方案、风险点和回滚策略。</p>
+      </section>
+
+      <section id="history" data-section="history" data-agent-editable="true">
+        <h2>6. 交互历史区</h2>
+        <p>任务创建于 {{CREATED_AT}}。</p>
+      </section>
+
+      <section id="learning" data-section="learning" data-agent-editable="true">
+        <h2>7. 经验沉淀区</h2>
+        <p>等待经验沉淀阶段生成 Markdown 草稿和导出预览。</p>
+      </section>
+    </main>
+  </div>
+
+  <div class="harness-toolbar" data-harness-runtime-ui="true" data-runtime-version="artifact-runtime-v2">
+    <span class="runtime-status" data-selection-status>未选中文本 · Runtime v2</span>
+    <button class="primary" data-comment-selection>评论选区</button>
+    <button class="secondary" data-save>保存 HTML</button>
+  </div>
+
+  <script type="application/json" id="harness-comments">
+    {"comments":[],"anchors":[]}
+  </script>
+
+  <script id="harness-artifact-runtime" data-agent-editable="false">
+  (() => {
+    const taskId = document.body.dataset.taskId;
+    let popover = null;
+    let selectionTimer = null;
+    let lastCommentTarget = null;
+
+    function commentsData() {
+      const node = document.getElementById('harness-comments');
+      let data;
+      try { data = JSON.parse(node.textContent || '{"comments":[],"anchors":[]}'); }
+      catch { data = { comments: [], anchors: [] }; }
+      if (!Array.isArray(data.comments)) data.comments = [];
+      if (!Array.isArray(data.anchors)) data.anchors = [];
+      return data;
+    }
+
+    function toast(message) {
+      const old = document.querySelector('.harness-toast');
+      if (old) old.remove();
+      const el = document.createElement('div');
+      el.className = 'harness-toast';
+      el.textContent = message;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 1800);
+    }
+
+    async function persist(successMessage = '已保存 HTML 产物') {
+      const runtimeUi = [...document.querySelectorAll('[data-harness-runtime-ui="true"]')];
+      runtimeUi.forEach(el => el.remove());
+      const clone = document.documentElement.cloneNode(true);
+      clone.querySelectorAll('[data-harness-runtime-ui="true"]').forEach(el => el.remove());
+      clone.querySelectorAll('script').forEach(script => {
+        if (!['harness-comments', 'harness-artifact-runtime'].includes(script.id)) script.remove();
+      });
+      const html = '<!doctype html>\n' + clone.outerHTML;
+      ensureToolbar();
+      const response = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/artifact/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html })
+      });
+      if (!response.ok) throw new Error(await response.text());
+      toast(successMessage);
+    }
+
+    function closePopover() {
+      if (popover) popover.remove();
+      popover = null;
+    }
+
+    async function apiJson(url, options) {
+      const response = await fetch(url, options);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error((data.error && data.error.message) || `请求失败：${response.status}`);
+      return data;
+    }
+
+    function selectionContext(section, range, quote) {
+      const before = document.createRange();
+      before.setStart(section, 0);
+      before.setEnd(range.startContainer, range.startOffset);
+      const prefixSource = before.toString();
+      const after = document.createRange();
+      after.setStart(range.endContainer, range.endOffset);
+      after.setEnd(section, section.childNodes.length);
+      const suffixSource = after.toString();
+      let occurrenceIndex = 0;
+      if (quote) {
+        let index = prefixSource.indexOf(quote);
+        while (index >= 0) {
+          occurrenceIndex += 1;
+          index = prefixSource.indexOf(quote, index + Math.max(quote.length, 1));
+        }
+      }
+      return {
+        prefix: prefixSource.slice(-80),
+        suffix: suffixSource.slice(0, 80),
+        occurrenceIndex,
+      };
+    }
+
+    function elementFromNode(node) {
+      if (!node) return null;
+      return node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+    }
+
+    function rangeSection(range) {
+      const common = elementFromNode(range.commonAncestorContainer);
+      const start = elementFromNode(range.startContainer);
+      const end = elementFromNode(range.endContainer);
+      const sections = [common, start, end]
+        .map(el => el?.closest?.('section[data-section]'))
+        .filter(Boolean);
+      if (!sections.length) return null;
+      return sections.every(section => section === sections[0]) ? sections[0] : null;
+    }
+
+    function rangeExistingMark(range) {
+      const nodes = [range.commonAncestorContainer, range.startContainer, range.endContainer];
+      for (const node of nodes) {
+        const mark = elementFromNode(node)?.closest?.('mark[data-comment-anchor-id]');
+        if (mark) return mark;
+      }
+      return null;
+    }
+
+    function isInsidePopover(node) {
+      return Boolean(elementFromNode(node)?.closest?.('.harness-comment-popover'));
+    }
+
+    function updateSelectionStatus(message) {
+      document.querySelectorAll('[data-selection-status]').forEach(el => {
+        el.textContent = message || (lastCommentTarget ? `已捕获选区：${lastCommentTarget.quote.slice(0, 24)}` : '未选中文本 · Runtime v2');
+      });
+    }
+
+    function scheduleCommentFromSelection(event, delay = 40) {
+      if (selectionTimer) clearTimeout(selectionTimer);
+      selectionTimer = setTimeout(() => {
+        if (event?.target?.closest?.('.harness-comment-popover,.harness-toolbar')) return;
+        rememberCommentTarget();
+      }, delay);
+    }
+
+    function readCommentTarget(options = {}) {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selection.rangeCount) {
+        if (options.showHint) toast('请先选中文本，再添加评论');
+        return null;
+      }
+      const range = selection.getRangeAt(0);
+      if (isInsidePopover(range.commonAncestorContainer) || isInsidePopover(selection.anchorNode) || isInsidePopover(selection.focusNode)) return null;
+      const section = rangeSection(range);
+      if (!section) {
+        if (options.showHint) toast('只能评论正文区域内的文本');
+        return null;
+      }
+      const quote = selection.toString().trim();
+      if (!quote) {
+        if (options.showHint) toast('请先选中一段有效文本');
+        return null;
+      }
+      const rect = range.getBoundingClientRect();
+      return {
+        section,
+        range: range.cloneRange(),
+        quote,
+        rect: { left: rect.left, bottom: rect.bottom },
+      };
+    }
+
+    function rememberCommentTarget() {
+      const target = readCommentTarget();
+      if (target) {
+        lastCommentTarget = target;
+        updateSelectionStatus();
+      }
+      return target;
+    }
+
+    function createCommentFromSelection(event, options = {}) {
+      if (event?.target?.closest?.('.harness-comment-popover')) return;
+      const target = readCommentTarget(options) || (options.useSaved ? lastCommentTarget : null);
+      if (!target) {
+        if (options.showHint) {
+          updateSelectionStatus('未捕获选区，请重新选中文本');
+          toast('请先选中文本，再添加评论');
+        }
+        return;
+      }
+      lastCommentTarget = target;
+      const { section, range, quote, rect } = target;
+      closePopover();
+      popover = document.createElement('div');
+      popover.className = 'harness-comment-popover';
+      popover.style.left = `${Math.max(rect.left + window.scrollX, 24)}px`;
+      popover.style.top = `${rect.bottom + window.scrollY + 8}px`;
+      popover.innerHTML = '<strong>评论选中文本</strong><textarea placeholder="输入评论..."></textarea><div class="actions"><button class="secondary" data-action="cancel">取消</button><button class="primary" data-action="submit">提交</button></div>';
+      document.body.appendChild(popover);
+      popover.querySelector('[data-action="cancel"]').onclick = closePopover;
+      popover.querySelector('[data-action="submit"]').onclick = async () => {
+        const content = popover.querySelector('textarea').value.trim();
+        if (!content) return;
+        const context = selectionContext(section, range, quote);
+        const existingMark = rangeExistingMark(range);
+        try {
+          await apiJson(`/api/tasks/${encodeURIComponent(taskId)}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              section: section.dataset.section,
+              quote,
+              content,
+              prefix: context.prefix,
+              suffix: context.suffix,
+              occurrenceIndex: context.occurrenceIndex,
+              anchorId: existingMark?.dataset.commentAnchorId || '',
+            }),
+          });
+        } catch (err) {
+          toast(`评论保存失败：${err.message}`);
+          return;
+        }
+        window.getSelection()?.removeAllRanges();
+        closePopover();
+        toast('评论已保存，Agent 下次运行可读取');
+        location.reload();
+      };
+    }
+
+    function showExistingComment(mark) {
+      const anchorId = mark.dataset.commentAnchorId || '';
+      const legacyId = mark.dataset.commentId || '';
+      const data = commentsData();
+      const items = data.comments.filter(c => (anchorId && c.anchorId === anchorId) || (legacyId && c.id === legacyId));
+      if (!items.length && !anchorId) return;
+      const rect = mark.getBoundingClientRect();
+      closePopover();
+      popover = document.createElement('div');
+      popover.className = 'harness-comment-popover';
+      popover.style.left = `${Math.max(rect.left + window.scrollX, 24)}px`;
+      popover.style.top = `${rect.bottom + window.scrollY + 8}px`;
+      const list = items.map(item => `<div style="border-bottom:1px solid var(--border);padding:8px 0"><strong>${item.id}</strong><p>${item.content}</p><p>状态：${item.status}</p>${item.status === 'done' ? '' : `<button class="success" data-done="${item.id}">done</button>`}</div>`).join('');
+      popover.innerHTML = `<strong>评论锚点 ${anchorId || legacyId}</strong>${list}<textarea placeholder="继续补充这个位置的评论..."></textarea><div class="actions"><button class="secondary" data-action="close">关闭</button><button class="primary" data-action="add">新增评论</button></div>`;
+      document.body.appendChild(popover);
+      popover.querySelector('[data-action="close"]').onclick = closePopover;
+      popover.querySelector('[data-action="add"]').onclick = async () => {
+        const content = popover.querySelector('textarea').value.trim();
+        if (!content) return;
+        try {
+          await apiJson(`/api/tasks/${encodeURIComponent(taskId)}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ section: mark.closest('section[data-section]')?.dataset.section || '', quote: mark.textContent, content, anchorId }),
+          });
+          toast('评论已追加');
+          location.reload();
+        } catch (err) {
+          toast(`评论保存失败：${err.message}`);
+        }
+      };
+      popover.querySelectorAll('[data-done]').forEach(button => {
+        button.onclick = async () => {
+          try {
+            await apiJson(`/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(button.dataset.done)}/resolve`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'done' }),
+            });
+            toast('评论状态已保存');
+            location.reload();
+          } catch (err) {
+            toast(`评论状态保存失败：${err.message}`);
+          }
+        };
+      });
+    }
+
+    document.addEventListener('mouseup', event => scheduleCommentFromSelection(event));
+    document.addEventListener('keyup', event => scheduleCommentFromSelection(event));
+    document.addEventListener('selectionchange', () => setTimeout(rememberCommentTarget, 80));
+    document.addEventListener('click', event => {
+      const mark = event.target.closest?.('mark[data-comment-anchor-id],mark[data-comment-id]');
+      if (mark) { event.preventDefault(); showExistingComment(mark); }
+    });
+
+    function ensureToolbar() {
+      document.querySelectorAll('.harness-toolbar').forEach(el => el.remove());
+      const toolbar = document.createElement('div');
+      toolbar.className = 'harness-toolbar';
+      toolbar.dataset.harnessRuntimeUi = 'true';
+      toolbar.dataset.runtimeVersion = 'artifact-runtime-v2';
+      toolbar.innerHTML = '<span class="runtime-status" data-selection-status>未选中文本 · Runtime v2</span><button class="primary" data-comment-selection>评论选区</button><button class="secondary" data-save>保存 HTML</button>';
+      document.body.appendChild(toolbar);
+      bindToolbar(toolbar);
+      updateSelectionStatus();
+    }
+    function bindToolbar(toolbar) {
+      const commentButton = toolbar.querySelector('[data-comment-selection]');
+      const saveButton = toolbar.querySelector('[data-save]');
+      commentButton.onpointerdown = event => event.preventDefault();
+      commentButton.onmousedown = event => event.preventDefault();
+      commentButton.onclick = event => {
+        event.preventDefault();
+        createCommentFromSelection(null, { showHint: true, useSaved: true });
+      };
+      saveButton.onclick = () => persist().catch(err => toast(`保存失败：${err.message}`));
+    }
+    ensureToolbar();
+  })();
+  </script>
+</body>
+</html>

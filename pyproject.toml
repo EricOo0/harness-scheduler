@@ -7,10 +7,10 @@ name = "symphony-self"
 version = "0.1.0"
 description = "A Symphony service implementation."
 requires-python = ">=3.11"
-dependencies = ["PyYAML>=6.0"]
+dependencies = []
 
 [project.scripts]
 symphony = "symphony.cli:main"
 
-[tool.setuptools]
-packages = ["symphony"]
+[tool.setuptools.packages.find]
+include = ["symphony*"]
