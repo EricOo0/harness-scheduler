@@ -11,6 +11,7 @@ from symphony.agents.codex_app_server import CodexAppServerAdapter
 from symphony.agents.events import AgentEventSink
 from symphony.agents.mock import MockAgentAdapter
 from symphony.agents.selector import AgentSelector
+from symphony.agents.trace_normalizer import normalize_stream_events
 from symphony.storage.db import beijing_now_display
 
 
@@ -32,9 +33,19 @@ class AgentRuntime:
         event_log_path = runs_dir / f"{run_id}.events.jsonl"
         sink = AgentEventSink(store=self.store, task_id=task["id"], run_id=run_id, agent_profile_id=profile.id, event_log_path=event_log_path)
         sink.emit("agent_selected", {"profile": self._profile_log(profile), "dangerously_skip_permissions": profile.dangerously_skip_permissions})
+        self.store.append_trace_step(
+            run_id=run_id,
+            task_id=task["id"],
+            stage=stage,
+            step_type="agent.select",
+            title="Agent selected",
+            summary=f"Selected {profile.name} ({profile.kind}).",
+            detail={"profile": self._profile_log(profile), "dangerously_skip_permissions": profile.dangerously_skip_permissions},
+        )
         self.store.update_run_agent(run_id, agent_profile_id=profile.id, event_log_path=str(event_log_path), command=self._profile_command(profile))
         session = self.store.create_agent_session(agent_profile_id=profile.id, task_id=task["id"], stage=stage)
         self.store.update_run_result(run_id, agent_session_id=session)
+        self.store.update_trace_run(run_id, agent_profile_id=profile.id, agent_session_id=session)
         ctx = AgentRunContext(
             run_id=run_id,
             task=task,
@@ -52,17 +63,45 @@ class AgentRuntime:
             raise ValueError(f"unsupported agent kind: {profile.kind}")
         pending_before = self._pending_comments(ctx.artifact_path.read_text(encoding="utf-8"))
         sink.emit("agent_started", {"adapter": adapter.__class__.__name__, "session_id": session})
+        self.store.append_trace_artifact(run_id=run_id, artifact_type="event_log", title="Agent Raw Event Log", path=str(event_log_path), content_type="application/jsonl")
+        self.store.append_trace_step(
+            run_id=run_id,
+            task_id=task["id"],
+            stage=stage,
+            step_type="agent.start",
+            title="Agent started",
+            summary=f"{adapter.__class__.__name__} started.",
+            detail={"adapter": adapter.__class__.__name__, "session_id": session, "command": self._profile_command(profile)},
+        )
         result = adapter.run(ctx)
         self._apply_harness_result_json(result)
+        self._append_native_trace_steps(ctx, result)
         archived_count = 0
         if result.status == "completed":
             archived_count = self._archive_resolved_comments(ctx, pending_before)
             if archived_count:
                 sink.emit("comments_archived", {"count": archived_count, "run_id": run_id, "stage": stage})
+                self.store.append_trace_step(
+                    run_id=run_id,
+                    task_id=task["id"],
+                    stage=stage,
+                    step_type="comment.archive",
+                    title="Resolved comments archived",
+                    summary=f"Archived {archived_count} resolved comments.",
+                    detail={"count": archived_count},
+                )
         if result.external_session_id:
             self.store.update_agent_session(session, external_session_id=result.external_session_id, status=result.status)
         else:
             self.store.update_agent_session(session, status=result.status)
+        self.store.update_trace_run(
+            run_id,
+            status=result.status,
+            summary=result.summary,
+            suggested_status=result.suggested_status,
+            external_run_id=result.external_session_id,
+            error=result.error,
+        )
         sink.emit(
             "agent_finished",
             {
@@ -74,6 +113,25 @@ class AgentRuntime:
                 "error": result.error,
                 "archived_resolved_comments": archived_count,
             },
+        )
+        self.store.append_trace_step(
+            run_id=run_id,
+            task_id=task["id"],
+            stage=stage,
+            step_type="agent.final",
+            title="Agent result",
+            status=result.status,
+            source="native_agent",
+            summary=result.summary,
+            detail={
+                "status": result.status,
+                "summary": result.summary,
+                "suggested_status": result.suggested_status,
+                "external_session_id": result.external_session_id,
+                "usage": result.usage,
+                "error": result.error,
+            },
+            raw_event=result.raw_result,
         )
         return result, event_log_path
 
@@ -130,6 +188,24 @@ class AgentRuntime:
     @staticmethod
     def _profile_log(profile: AgentProfile) -> dict:
         return json.loads(json.dumps({**AgentRuntime._profile_command(profile), "id": profile.id, "name": profile.name}, ensure_ascii=False))
+
+    def _append_native_trace_steps(self, ctx: AgentRunContext, result: AgentRunResult) -> None:
+        events = result.raw_result.get("events")
+        if not isinstance(events, list):
+            return
+        for step in normalize_stream_events(ctx.profile.kind, events):
+            self.store.append_trace_step(
+                run_id=ctx.run_id,
+                task_id=ctx.task["id"],
+                stage=ctx.stage,
+                step_type=step["step_type"],
+                title=step["title"],
+                status=step.get("status", "completed"),
+                source="native_agent",
+                summary=step.get("summary"),
+                detail=step.get("detail") or {},
+                raw_event=step.get("raw_event") or {},
+            )
 
     def _archive_resolved_comments(self, ctx: AgentRunContext, pending_before: dict[str, dict]) -> int:
         if not pending_before:

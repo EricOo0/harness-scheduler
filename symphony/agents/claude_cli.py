@@ -63,10 +63,10 @@ class ClaudeCodeCliAdapter:
             elif isinstance(value, dict):
                 parsed.append(value)
         if not parsed:
-            return {"result": output.strip()}
+            return {"result": output.strip(), "events": []}
         result = next((item for item in reversed(parsed) if item.get("type") == "result"), parsed[-1])
         if "result" not in result:
             text = "".join(str(item.get("delta") or item.get("text") or "") for item in parsed)
             if text:
                 result = {**result, "result": text}
-        return result
+        return {**result, "events": parsed}

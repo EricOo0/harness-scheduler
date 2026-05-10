@@ -7,6 +7,7 @@ import urllib.request
 from pathlib import Path
 
 from symphony.agents.base import AgentRunResult
+from symphony.agents.trace_normalizer import normalize_stream_events
 from symphony.harness import ArtifactFileManager, HarnessApp, HarnessPaths, HarnessServer
 
 
@@ -33,6 +34,9 @@ class HarnessTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn('script#harness-render-assets', prompt)
             self.assertIn('data-diagram-id', prompt)
             self.assertIn('不要使用 <pre data-render="mermaid">', prompt)
+            self.assertIn('"nodes":[{"id":"A"', prompt)
+            self.assertIn("默认不要手写 source DSL", prompt)
+            self.assertIn("不要写 A[label] 承载复杂文案", prompt)
             self.assertIn("## BaseSystemPrompt", prompt)
             self.assertIn("## StagePrompt", prompt)
             self.assertIn("信息不足时先写清楚缺口", prompt)
@@ -220,6 +224,19 @@ class HarnessMockSchedulerTests(unittest.TestCase):
             self.assertTrue(Path(run["event_log_path"]).exists())
             agent_events = app.store.list_agent_run_events(run_id=run["id"])
             self.assertTrue(any(event["event_type"] == "agent_selected" for event in agent_events))
+            trace_runs = app.store.list_trace_runs(task_id=task["id"])
+            self.assertEqual(len(trace_runs), 1)
+            self.assertEqual(trace_runs[0]["id"], run["id"])
+            trace_steps = app.store.list_trace_steps(run["id"])
+            step_types = [step["step_type"] for step in trace_steps]
+            self.assertIn("run.start", step_types)
+            self.assertIn("prompt.build", step_types)
+            self.assertIn("agent.start", step_types)
+            self.assertIn("agent.final", step_types)
+            self.assertIn("scheduler.handoff", step_types)
+            self.assertIn("run.end", step_types)
+            prompt_step = next(step for step in trace_steps if step["step_type"] == "prompt.build")
+            self.assertIn("prompt_path", prompt_step["detail"])
 
     def test_mock_scheduler_marks_pending_comments_done(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -479,9 +496,14 @@ class HarnessWorkflowPromptTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("renderMermaidAssets", template)
         self.assertIn("harness-render-assets", template)
         self.assertIn("mermaidAssetMap", template)
+        self.assertIn("quoteMermaidSquareLabels", template)
+        self.assertIn("compileMermaidFlowchart", template)
+        self.assertIn("mermaidSourceFromAsset", template)
+        self.assertIn('return `${id}["${label}"]`', template)
+        self.assertIn("renderMermaidSource", template)
         self.assertIn("mermaid@10", template)
         self.assertIn('[data-render=\"mermaid\"][data-diagram-id]', template)
-        self.assertNotIn("function mermaidSource", template)
+        self.assertNotIn("function mermaidSource(block)", template)
         self.assertNotIn('pre[data-render="mermaid"] {', template)
         self.assertIn("flowchart: { htmlLabels: true }", template)
         self.assertIn("评论选区", template)
@@ -647,6 +669,147 @@ class HarnessDesignContractTests(unittest.TestCase):
             updated = app.store.get_task(task["id"])
             self.assertEqual(updated["status"], "需求确认")
 
+    def test_agent_native_tool_use_is_extracted_for_trace(self):
+        class ToolEventAdapter:
+            def run(self, ctx):
+                return AgentRunResult(
+                    status="completed",
+                    summary="工具调用完成",
+                    suggested_status=ctx.stage_spec["review"],
+                    raw_result={
+                        "events": [
+                            {
+                                "type": "assistant",
+                                "message": {
+                                    "content": [
+                                        {"type": "text", "text": "先搜索。"},
+                                        {
+                                            "type": "tool_use",
+                                            "id": "call_function_wqeda4z4rje1_1",
+                                            "name": "Grep",
+                                            "input": {"output_mode": "count", "pattern": "foo"},
+                                        }
+                                    ]
+                                },
+                            }
+                        ]
+                    },
+                )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            app = HarnessApp(HarnessPaths.from_project(tmp))
+            app.agent_runtime.adapters["mock"] = ToolEventAdapter()
+            task = app.create_task({"title": "工具解析", "description": "D"})
+
+            app.process_dispatchable_once()
+
+            run = app.store.list_runs(task_id=task["id"])[0]
+            message_step = next(step for step in app.store.list_trace_steps(run["id"]) if step["step_type"] == "agent.message")
+            self.assertIn("先搜索", message_step["detail"]["text"])
+            tool_step = next(step for step in app.store.list_trace_steps(run["id"]) if step["step_type"] == "tool.span")
+            self.assertEqual(tool_step["title"], "Grep")
+            self.assertEqual(tool_step["detail"]["tool_name"], "Grep")
+            self.assertEqual(tool_step["detail"]["tool_call_id"], "call_function_wqeda4z4rje1_1")
+            self.assertEqual(tool_step["detail"]["input"]["output_mode"], "count")
+            self.assertIn("output_mode=count", tool_step["summary"])
+
+
+class TraceNormalizerTests(unittest.TestCase):
+    def test_claude_text_deltas_are_coalesced(self):
+        steps = normalize_stream_events(
+            "claude_cli",
+            [
+                {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "我先"}},
+                {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "检查代码。"}},
+            ],
+        )
+
+        self.assertEqual(len(steps), 1)
+        self.assertEqual(steps[0]["step_type"], "agent.message")
+        self.assertEqual(steps[0]["detail"]["text"], "我先检查代码。")
+        self.assertEqual(steps[0]["detail"]["raw_event_count"], 2)
+
+    def test_claude_tool_use_and_result_are_merged(self):
+        steps = normalize_stream_events(
+            "claude_cli",
+            [
+                {"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "call_1", "name": "Grep", "input": {"output_mode": "count"}}]}},
+                {"type": "assistant", "message": {"content": [{"type": "tool_result", "tool_use_id": "call_1", "content": "3"}]}},
+            ],
+        )
+
+        self.assertEqual(len(steps), 1)
+        self.assertEqual(steps[0]["step_type"], "tool.span")
+        self.assertEqual(steps[0]["title"], "Grep")
+        self.assertEqual(steps[0]["status"], "completed")
+        self.assertEqual(steps[0]["detail"]["result"], "3")
+        self.assertEqual(steps[0]["detail"]["raw_event_count"], 2)
+
+    def test_codex_tool_call_and_output_are_merged(self):
+        steps = normalize_stream_events(
+            "codex_app_server",
+            [
+                {"method": "turn.delta", "params": {"delta": "准备搜索。"}},
+                {"method": "tool.call", "params": {"callId": "c1", "name": "Grep", "input": {"pattern": "foo"}}},
+                {"method": "tool.output", "params": {"callId": "c1", "output": "matched"}},
+                {"method": "turn.complete", "params": {"summary": "完成"}},
+            ],
+        )
+
+        self.assertEqual([step["step_type"] for step in steps], ["agent.message", "tool.span", "agent.final"])
+        self.assertEqual(steps[1]["title"], "Grep")
+        self.assertEqual(steps[1]["detail"]["input"]["pattern"], "foo")
+        self.assertEqual(steps[1]["detail"]["result"], "matched")
+
+    def test_claude_stream_event_envelope_is_unwrapped(self):
+        steps = normalize_stream_events(
+            "claude_cli",
+            [
+                {
+                    "type": "stream_event",
+                    "event": {
+                        "event": {
+                            "type": "content_block_delta",
+                            "delta": {"type": "text_delta", "text": "展开后的文本"},
+                        },
+                        "session_id": "session_1",
+                    },
+                }
+            ],
+        )
+
+        self.assertEqual(len(steps), 1)
+        self.assertEqual(steps[0]["step_type"], "agent.message")
+        self.assertEqual(steps[0]["detail"]["text"], "展开后的文本")
+
+    def test_thinking_delta_is_coalesced_into_message_detail(self):
+        steps = normalize_stream_events(
+            "claude_cli",
+            [
+                {"type": "stream_event", "event": {"event": {"type": "content_block_delta", "delta": {"type": "thinking_delta", "thinking": "先分析"}}}},
+                {"type": "stream_event", "event": {"event": {"type": "content_block_delta", "delta": {"type": "thinking_delta", "thinking": "再判断"}}}},
+                {"type": "stream_event", "event": {"event": {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "结论"}}}},
+            ],
+        )
+
+        self.assertEqual(len(steps), 1)
+        self.assertEqual(steps[0]["step_type"], "agent.message")
+        self.assertEqual(steps[0]["detail"]["thinking"], "先分析再判断")
+        self.assertEqual(steps[0]["detail"]["text"], "结论")
+        self.assertEqual(steps[0]["detail"]["thinking_event_count"], 2)
+
+    def test_metadata_and_heartbeat_do_not_enter_timeline(self):
+        steps = normalize_stream_events(
+            "claude_cli",
+            [
+                {"type": "message_start", "message": {"id": "m1"}},
+                {"type": "heartbeat"},
+                {"type": "content_block_stop", "index": 0},
+            ],
+        )
+
+        self.assertEqual(steps, [])
+
 
 class HarnessMonitorHttpTests(unittest.IsolatedAsyncioTestCase):
     async def test_monitor_health_and_runs_api(self):
@@ -690,9 +853,12 @@ class HarnessLogPageTests(unittest.IsolatedAsyncioTestCase):
             try:
                 with urllib.request.urlopen(f"{base}/logs", timeout=5) as resp:
                     page = resp.read().decode("utf-8")
-                self.assertIn("任务日志", page)
-                self.assertIn("调度过程日志", page)
-                self.assertIn("Agent 操作日志", page)
+                self.assertIn("任务 Trace", page)
+                self.assertIn("Run Timeline", page)
+                self.assertIn("horizontal-timeline-rail", page)
+                self.assertIn("点击节点展开/收起具体内容", page)
+                self.assertIn("detail-tab", page)
+                self.assertIn("/api/trace/steps/", page)
 
                 with urllib.request.urlopen(f"{base}/tasks", timeout=5) as resp:
                     tasks_page = resp.read().decode("utf-8")
@@ -704,6 +870,23 @@ class HarnessLogPageTests(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(any(event["event_type"] == "scheduler_picked" for event in logs["events"]))
                 self.assertTrue(any(event["event_type"] == "run_finished" for event in logs["events"]))
                 self.assertEqual(logs["runs"][0]["id"], run["id"])
+
+                with urllib.request.urlopen(f"{base}/api/tasks/{task['id']}/trace", timeout=5) as resp:
+                    trace = json.loads(resp.read().decode("utf-8"))
+                self.assertEqual(trace["task"]["id"], task["id"])
+                planning = next(stage for stage in trace["stages"] if stage["stage"] == "planning")
+                self.assertEqual(planning["runs"][0]["id"], run["id"])
+                prompt_item = next(step for step in planning["runs"][0]["timeline"] if step["step_type"] == "prompt.build")
+                step_id = prompt_item["id"]
+                with urllib.request.urlopen(f"{base}/api/trace/steps/{step_id}", timeout=5) as resp:
+                    step_detail = json.loads(resp.read().decode("utf-8"))
+                self.assertEqual(step_detail["step"]["id"], step_id)
+                prompt_artifact = step_detail["step"]["artifacts"][0]
+                self.assertEqual(prompt_artifact["artifact_type"], "prompt")
+                self.assertEqual(prompt_artifact["file"]["name"], Path(prompt_artifact["file"]["path"]).name)
+                self.assertGreater(prompt_artifact["file"]["size_bytes"], 0)
+                self.assertIn("# Harness Scheduler Agent Prompt", prompt_artifact["file"]["preview"])
+                self.assertIn("# Harness Scheduler Agent Prompt", prompt_artifact["file"]["content"])
 
                 with urllib.request.urlopen(f"{base}/api/runs/{run['id']}/logs", timeout=5) as resp:
                     run_logs = json.loads(resp.read().decode("utf-8"))

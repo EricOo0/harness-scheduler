@@ -57,6 +57,52 @@ CREATE TABLE IF NOT EXISTS task_runs (
   finished_at TEXT,
   error TEXT
 );
+CREATE TABLE IF NOT EXISTS agent_runs (
+  id TEXT PRIMARY KEY,
+  task_id TEXT NOT NULL,
+  stage TEXT NOT NULL,
+  stage_title TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL,
+  agent_profile_id TEXT,
+  agent_session_id TEXT,
+  attempt INTEGER NOT NULL DEFAULT 1,
+  summary TEXT,
+  suggested_status TEXT,
+  external_run_id TEXT,
+  started_at TEXT NOT NULL,
+  finished_at TEXT,
+  error TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS agent_run_steps (
+  id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  task_id TEXT NOT NULL,
+  stage TEXT NOT NULL,
+  seq INTEGER NOT NULL,
+  step_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  status TEXT NOT NULL,
+  source TEXT NOT NULL,
+  summary TEXT,
+  detail_json TEXT NOT NULL DEFAULT '{}',
+  raw_event_json TEXT NOT NULL DEFAULT '{}',
+  started_at TEXT NOT NULL,
+  finished_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS agent_run_artifacts (
+  id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  step_id TEXT,
+  artifact_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  path TEXT,
+  content_type TEXT,
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS event_logs (
   id TEXT PRIMARY KEY,
   task_id TEXT,

@@ -51,7 +51,8 @@ class PromptBuilder:
 - 不要新增 script/style/on* 事件处理器；只允许维护 script#harness-comments(type=application/json) 中的评论状态，以及 script#harness-render-assets(type=application/json) 中的渲染资源。
 - 不要修改 aside#harness-section-nav。
 - 不要删除 7 个主 section。
-- 如需画流程图/架构图/状态图，在正文位置写 <div data-render="mermaid" data-diagram-id="唯一ID"></div>，并在 script#harness-render-assets 的 mermaid 数组中维护同 ID 的 {{id,title,source}}；不要使用 <pre data-render="mermaid">，不要引入 Mermaid 脚本或保存渲染后的 SVG。
+- 如需画流程图/架构图/状态图，在正文位置写 <div data-render="mermaid" data-diagram-id="唯一ID"></div>，并在 script#harness-render-assets 的 mermaid 数组中维护同 ID 的结构化 flowchart 数据：{{id,title,direction,nodes,edges}}；不要使用 <pre data-render="mermaid">，不要引入 Mermaid 脚本或保存渲染后的 SVG。
+- Mermaid 默认不要手写 source DSL；用 nodes/edges 表达图，runtime 会统一生成带引号 label，避免括号、逗号、斜杠、冒号或 HTML label 被 Mermaid 解析为语法 token。
 - 信息不足时先写清楚缺口，不要猜测需求、仓库、分支或验证方式。
 - 当前运行在全自动权限模式；不要等待人工审批，能执行就直接执行，不能执行就写明阻塞原因。
 
@@ -70,7 +71,8 @@ HTML 产物路径：{task['artifact_path']}
 - 正文锚点：mark[data-comment-anchor-id]，旧产物可能仍有 mark[data-comment-id]
 - 评论数据：script#harness-comments(type=application/json)，comments 是主对象，anchors 是可选展示锚点
 - 必须优先处理 status=pending 的评论；处理完成后把对应 comment.status 更新为 done，并同步该 anchor/mark 的 data-comment-status。
-- Mermaid 图表：正文只写 <div data-render="mermaid" data-diagram-id="..."></div> 占位符；源码只写入 script#harness-render-assets(type=application/json) 的 mermaid 数组 source 字段，source 是 JSON 字符串，换行使用 \\n。
+- Mermaid 图表：正文只写 <div data-render="mermaid" data-diagram-id="..."></div> 占位符；script#harness-render-assets(type=application/json) 的 mermaid 数组默认写结构化对象：{{"id":"...","title":"...","direction":"TD","nodes":[{{"id":"A","label":"API 请求入口<br/>AgentSandboxHTTPNet.request","shape":"rect"}}],"edges":[{{"from":"A","to":"B","label":"成功"}}]}}。
+- 只有非 flowchart 图或结构化 edges 无法表达时，才使用 source 字符串；source 里的节点 label 必须写成 A["label"]，不要写 A[label] 承载复杂文案。
 
 本阶段重点修改模块：
 {chr(10).join(f'- section#{section}' for section in sections)}

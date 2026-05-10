@@ -11,6 +11,7 @@ from symphony.api.agents import agent_health_payload, agents_payload, update_age
 from symphony.api.artifacts import artifact_metadata, render_artifact
 from symphony.api.pages import AGENTS_PAGE, LOGS_PAGE, MONITOR_PAGE, SKILLS_PAGE, TASKS_PAGE, WORKFLOW_PAGE
 from symphony.api.runs import run_log_payload, runs_payload, scheduler_health, task_logs_payload
+from symphony.api.trace import task_trace_payload, trace_step_payload
 from symphony.api.workflow import preview_stage_prompt, update_stage_prompt, workflow_payload
 from symphony.domain.workflow import ALL_TASK_STATUSES, DISPATCHABLE_STATUSES, RUNNING_STATUSES, STAGES, WAITING_USER_STATUSES
 from symphony.storage.db import utc_now
@@ -77,6 +78,10 @@ class HarnessRequestHandler(BaseHTTPRequestHandler):
                 run_id = unquote(path.strip("/").split("/")[2])
                 self._send_json(run_log_payload(self.app, run_id))
                 return
+            if path.startswith("/api/trace/steps/"):
+                step_id = unquote(path.strip("/").split("/")[3])
+                self._send_json(trace_step_payload(self.app, step_id))
+                return
             if path == "/api/scheduler/health":
                 self._send_json(scheduler_health(self.app))
                 return
@@ -98,6 +103,9 @@ class HarnessRequestHandler(BaseHTTPRequestHandler):
                     return
                 if len(parts) == 4 and parts[3] == "logs":
                     self._send_json(task_logs_payload(self.app, task_id))
+                    return
+                if len(parts) == 4 and parts[3] == "trace":
+                    self._send_json(task_trace_payload(self.app, task_id))
                     return
             if path.startswith("/tasks/") and path.endswith("/artifact"):
                 task_id = unquote(path.split("/")[2])

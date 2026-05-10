@@ -384,12 +384,22 @@ class LocalTaskStore(SQLiteDatabase):
 
     def create_run(self, task_id: str, stage: str, status: str, prompt_path: str | None = None) -> str:
         run_id = f"run_{uuid.uuid4().hex}"
+        now = utc_now()
+        stage_title = STAGES.get(stage, {}).get("title", stage)
         with self.connection() as conn:
             conn.execute(
                 "INSERT INTO task_runs (id, task_id, stage, status, prompt_path, started_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (run_id, task_id, stage, status, prompt_path, utc_now()),
+                (run_id, task_id, stage, status, prompt_path, now),
             )
-            conn.execute("UPDATE tasks SET latest_run_id = ?, updated_at = ? WHERE id = ?", (run_id, utc_now(), task_id))
+            conn.execute(
+                """
+                INSERT INTO agent_runs
+                (id, task_id, stage, stage_title, status, started_at, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (run_id, task_id, stage, stage_title, status, now, now, now),
+            )
+            conn.execute("UPDATE tasks SET latest_run_id = ?, updated_at = ? WHERE id = ?", (run_id, now, task_id))
             self.append_event(conn, task_id, "run_created", {"run_id": run_id, "stage": stage, "status": status})
         return run_id
 
@@ -401,11 +411,162 @@ class LocalTaskStore(SQLiteDatabase):
             )
 
     def finish_run(self, run_id: str, status: str, error: str | None = None) -> None:
+        now = utc_now()
         with self.connection() as conn:
-            conn.execute("UPDATE task_runs SET status = ?, error = ?, finished_at = ? WHERE id = ?", (status, error, utc_now(), run_id))
+            conn.execute("UPDATE task_runs SET status = ?, error = ?, finished_at = ? WHERE id = ?", (status, error, now, run_id))
+            conn.execute("UPDATE agent_runs SET status = ?, error = ?, finished_at = ?, updated_at = ? WHERE id = ?", (status, error, now, now, run_id))
             row = conn.execute("SELECT task_id, stage FROM task_runs WHERE id = ?", (run_id,)).fetchone()
             if row:
                 self.append_event(conn, row["task_id"], "run_finished", {"run_id": run_id, "stage": row["stage"], "status": status, "error": error})
+
+    def update_trace_run(
+        self,
+        run_id: str,
+        *,
+        status: str | None = None,
+        agent_profile_id: str | None = None,
+        agent_session_id: str | None = None,
+        summary: str | None = None,
+        suggested_status: str | None = None,
+        external_run_id: str | None = None,
+        error: str | None = None,
+    ) -> None:
+        with self.connection() as conn:
+            conn.execute(
+                """
+                UPDATE agent_runs
+                SET status = COALESCE(?, status),
+                    agent_profile_id = COALESCE(?, agent_profile_id),
+                    agent_session_id = COALESCE(?, agent_session_id),
+                    summary = COALESCE(?, summary),
+                    suggested_status = COALESCE(?, suggested_status),
+                    external_run_id = COALESCE(?, external_run_id),
+                    error = COALESCE(?, error),
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (status, agent_profile_id, agent_session_id, summary, suggested_status, external_run_id, error, utc_now(), run_id),
+            )
+
+    def append_trace_step(
+        self,
+        *,
+        run_id: str,
+        task_id: str,
+        stage: str,
+        step_type: str,
+        title: str,
+        status: str = "completed",
+        source: str = "harness",
+        summary: str | None = None,
+        detail: dict[str, Any] | None = None,
+        raw_event: dict[str, Any] | None = None,
+        started_at: str | None = None,
+        finished_at: str | None = None,
+    ) -> str:
+        step_id = f"ars_{uuid.uuid4().hex}"
+        now = utc_now()
+        started = started_at or now
+        with self.connection() as conn:
+            row = conn.execute("SELECT COALESCE(MAX(seq), 0) AS max_seq FROM agent_run_steps WHERE run_id = ?", (run_id,)).fetchone()
+            seq = int(row["max_seq"] or 0) + 1
+            conn.execute(
+                """
+                INSERT INTO agent_run_steps
+                (id, run_id, task_id, stage, seq, step_type, title, status, source, summary, detail_json, raw_event_json, started_at, finished_at, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    step_id,
+                    run_id,
+                    task_id,
+                    stage,
+                    seq,
+                    step_type,
+                    title,
+                    status,
+                    source,
+                    summary,
+                    json.dumps(detail or {}, ensure_ascii=False),
+                    json.dumps(raw_event or {}, ensure_ascii=False),
+                    started,
+                    finished_at,
+                    now,
+                ),
+            )
+        return step_id
+
+    def append_trace_artifact(
+        self,
+        *,
+        run_id: str,
+        artifact_type: str,
+        title: str,
+        step_id: str | None = None,
+        path: str | None = None,
+        content_type: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
+        artifact_id = f"ara_{uuid.uuid4().hex}"
+        with self.connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO agent_run_artifacts
+                (id, run_id, step_id, artifact_type, title, path, content_type, metadata_json, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (artifact_id, run_id, step_id, artifact_type, title, path, content_type, json.dumps(metadata or {}, ensure_ascii=False), utc_now()),
+            )
+        return artifact_id
+
+    def list_trace_runs(self, *, task_id: str | None = None, stage: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
+        sql = "SELECT * FROM agent_runs WHERE 1=1"
+        args: list[Any] = []
+        if task_id:
+            sql += " AND task_id = ?"
+            args.append(task_id)
+        if stage:
+            sql += " AND stage = ?"
+            args.append(stage)
+        sql += " ORDER BY started_at DESC LIMIT ?"
+        args.append(limit)
+        with self.connection() as conn:
+            return [dict(row) for row in conn.execute(sql, args).fetchall()]
+
+    def list_trace_steps(self, run_id: str, *, limit: int = 1000) -> list[dict[str, Any]]:
+        with self.connection() as conn:
+            rows = [dict(row) for row in conn.execute("SELECT * FROM agent_run_steps WHERE run_id = ? ORDER BY seq ASC LIMIT ?", (run_id, limit)).fetchall()]
+        for row in rows:
+            row["detail"] = json.loads(row.pop("detail_json") or "{}")
+            row["raw_event"] = json.loads(row.pop("raw_event_json") or "{}")
+        return rows
+
+    def get_trace_step(self, step_id: str) -> dict[str, Any] | None:
+        with self.connection() as conn:
+            row = conn.execute("SELECT * FROM agent_run_steps WHERE id = ?", (step_id,)).fetchone()
+        if not row:
+            return None
+        data = dict(row)
+        data["detail"] = json.loads(data.pop("detail_json") or "{}")
+        data["raw_event"] = json.loads(data.pop("raw_event_json") or "{}")
+        data["artifacts"] = self.list_trace_artifacts(step_id=step_id)
+        return data
+
+    def list_trace_artifacts(self, *, run_id: str | None = None, step_id: str | None = None) -> list[dict[str, Any]]:
+        sql = "SELECT * FROM agent_run_artifacts WHERE 1=1"
+        args: list[Any] = []
+        if run_id:
+            sql += " AND run_id = ?"
+            args.append(run_id)
+        if step_id:
+            sql += " AND step_id = ?"
+            args.append(step_id)
+        sql += " ORDER BY created_at ASC"
+        with self.connection() as conn:
+            rows = [dict(row) for row in conn.execute(sql, args).fetchall()]
+        for row in rows:
+            row["metadata"] = json.loads(row.pop("metadata_json") or "{}")
+        return rows
 
     def list_skills(self) -> list[dict[str, Any]]:
         with self.connection() as conn:
@@ -601,6 +762,10 @@ class LocalTaskStore(SQLiteDatabase):
                 "UPDATE task_runs SET agent_profile_id = ?, event_log_path = ?, command_json = ? WHERE id = ?",
                 (agent_profile_id, event_log_path, json.dumps(command, ensure_ascii=False), run_id),
             )
+            conn.execute(
+                "UPDATE agent_runs SET agent_profile_id = ?, updated_at = ? WHERE id = ?",
+                (agent_profile_id, utc_now(), run_id),
+            )
 
     def update_run_result(self, run_id: str, *, usage: dict[str, Any] | None = None, external_run_id: str | None = None, agent_session_id: str | None = None) -> None:
         with self.connection() as conn:
@@ -613,6 +778,16 @@ class LocalTaskStore(SQLiteDatabase):
                 WHERE id = ?
                 """,
                 (json.dumps(usage, ensure_ascii=False) if usage is not None else None, external_run_id, agent_session_id, run_id),
+            )
+            conn.execute(
+                """
+                UPDATE agent_runs
+                SET external_run_id = COALESCE(?, external_run_id),
+                    agent_session_id = COALESCE(?, agent_session_id),
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (external_run_id, agent_session_id, utc_now(), run_id),
             )
 
     @staticmethod

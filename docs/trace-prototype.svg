@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="980" viewBox="0 0 1440 980">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#101828" flood-opacity="0.08"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L8,3 z" fill="#98a2b3"/>
+    </marker>
+    <style>
+      .bg{fill:#f6f8fb}.panel{fill:#fff;stroke:#d0d5dd;stroke-width:1}.card{fill:#fff;stroke:#d0d5dd;stroke-width:1;filter:url(#shadow)}.soft{fill:#f9fafb;stroke:#e4e7ec;stroke-width:1}.blue{fill:#eff6ff;stroke:#60a5fa;stroke-width:1.5}.green{fill:#ecfdf3;stroke:#12b76a;stroke-width:1.5}.purple{fill:#f4f3ff;stroke:#7c3aed;stroke-width:1.5}.red{fill:#fef3f2;stroke:#f04438;stroke-width:1.5}.gray{fill:#f2f4f7;stroke:#d0d5dd;stroke-width:1.5}.primary{fill:#2563eb}.text{fill:#101828;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}.muted{fill:#667085;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}.inverse{fill:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}.mono{fill:#344054;font-family:SFMono-Regular,Menlo,Consolas,monospace}.h1{font-size:22px;font-weight:750}.title{font-size:18px;font-weight:700}.label{font-size:13px;font-weight:650}.small{font-size:12px}.xs{font-size:10px}.line{stroke:#d0d5dd;stroke-width:2;fill:none}.link{stroke:#98a2b3;stroke-width:2;fill:none;marker-end:url(#arrow)}.dash{stroke:#98a2b3;stroke-width:1.5;stroke-dasharray:5 5;fill:none}
+    </style>
+  </defs>
+  <rect class="bg" width="1440" height="980"/>
+
+  <rect class="panel" x="0" y="0" width="1440" height="58"/>
+  <text class="text h1" x="24" y="36">Trace · 单页执行链路</text>
+  <rect class="soft" x="268" y="13" width="260" height="32" rx="7"/>
+  <text class="muted small" x="282" y="34">Search task / run / span</text>
+  <rect class="soft" x="540" y="13" width="132" height="32" rx="7"/>
+  <text class="text small" x="554" y="34">All agents</text>
+  <rect class="soft" x="684" y="13" width="132" height="32" rx="7"/>
+  <text class="text small" x="698" y="34">All statuses</text>
+  <rect class="soft" x="828" y="13" width="140" height="32" rx="7"/>
+  <text class="text small" x="842" y="34">2026/05/10</text>
+  <rect class="blue" x="982" y="13" width="84" height="32" rx="7"/>
+  <text class="text small" x="1001" y="34">Refresh</text>
+  <rect class="primary" x="1078" y="13" width="112" height="32" rx="7"/>
+  <text class="inverse small" x="1097" y="34">导出报告</text>
+
+  <rect class="panel" x="14" y="76" width="294" height="878" rx="12"/>
+  <text class="text title" x="34" y="108">Tasks</text>
+  <text class="muted small" x="34" y="130">按任务选择一条完整 Trace</text>
+  <rect class="soft" x="34" y="150" width="254" height="34" rx="7"/>
+  <text class="muted small" x="48" y="172">搜索任务标题 / ID</text>
+  <rect class="blue" x="34" y="204" width="254" height="104" rx="10"/>
+  <text class="text label" x="50" y="230">base-agent-sdk tea 上报</text>
+  <text class="muted small" x="50" y="252">方案评审 · claude-code</text>
+  <text class="mono xs" x="50" y="274">task_20260510_173607_fed403</text>
+  <rect x="50" y="286" width="50" height="18" rx="9" fill="#e0f2fe"/><text class="muted xs" x="60" y="299">5 stages</text>
+  <rect x="106" y="286" width="42" height="18" rx="9" fill="#e0f2fe"/><text class="muted xs" x="116" y="299">3 runs</text>
+  <rect x="154" y="286" width="56" height="18" rx="9" fill="#fee2e2"/><text class="muted xs" x="164" y="299">1 failure</text>
+  <rect class="soft" x="34" y="324" width="254" height="92" rx="10"/>
+  <text class="text label" x="50" y="350">评论系统重构</text><text class="muted small" x="50" y="372">已完成 · codex</text><text class="mono xs" x="50" y="394">task_20260510_142540_361639</text>
+  <rect class="soft" x="34" y="432" width="254" height="92" rx="10"/>
+  <text class="text label" x="50" y="458">Artifact Runtime v2</text><text class="muted small" x="50" y="480">已完成 · claude-code</text><text class="mono xs" x="50" y="502">task_20260510_132408_1fd81a</text>
+
+  <rect class="panel" x="328" y="76" width="936" height="878" rx="12"/>
+  <text class="text h1" x="354" y="108">base-agent-sdk 增加 tea 上报优化</text>
+  <text class="muted small" x="354" y="130">当前状态：方案评审 · 总耗时 14m32s · Runs 5 · Tools 31 · Failures 1</text>
+  <rect class="blue" x="354" y="150" width="96" height="30" rx="7"/><text class="text small" x="372" y="170">打开 Artifact</text>
+  <rect class="soft" x="460" y="150" width="96" height="30" rx="7"/><text class="text small" x="480" y="170">查看 Prompt</text>
+  <rect class="soft" x="566" y="150" width="96" height="30" rx="7"/><text class="text small" x="586" y="170">只看失败</text>
+  <rect class="soft" x="672" y="150" width="124" height="30" rx="7"/><text class="text small" x="692" y="170">关闭 Detail</text>
+
+  <text class="text title" x="354" y="220">Stage Trace</text>
+  <line class="link" x1="660" y1="286" x2="730" y2="286"/><line class="link" x1="880" y1="286" x2="950" y2="286"/><line class="link" x1="1100" y1="286" x2="1170" y2="286"/>
+  <rect class="green" x="354" y="244" width="150" height="84" rx="12"/><text class="text label" x="396" y="270">需求规划</text><text class="muted xs" x="400" y="292">completed</text><text class="muted xs" x="400" y="312">34s · 3 tools</text>
+  <rect class="green" x="574" y="244" width="150" height="84" rx="12"/><text class="text label" x="616" y="270">方案设计</text><text class="muted xs" x="620" y="292">completed</text><text class="muted xs" x="620" y="312">2m10s · 9 tools</text>
+  <rect class="purple" x="794" y="244" width="150" height="84" rx="12"/><text class="text label" x="836" y="270">任务拆解</text><text class="muted xs" x="840" y="292">review</text><text class="muted xs" x="840" y="312">1m22s · 5 tools</text>
+  <rect class="gray" x="1014" y="244" width="150" height="84" rx="12"/><text class="text label" x="1056" y="270">代码实施</text><text class="muted xs" x="1060" y="292">pending</text><text class="muted xs" x="1060" y="312">waiting</text>
+  <path class="link" d="M1245 328 C1245 350, 1278 350, 1290 350"/><rect class="gray" x="1108" y="350" width="130" height="72" rx="12"/><text class="text label" x="1134" y="376">经验沉淀</text><text class="muted xs" x="1140" y="398">waiting</text>
+
+  <text class="text title" x="354" y="390">方案设计 · Runs</text>
+  <rect class="blue" x="354" y="410" width="860" height="82" rx="10"/><text class="text label" x="372" y="438">run_19008f95</text><text class="muted small" x="372" y="460">completed · claude-code · 1m40s</text><text class="muted small" x="372" y="482">15 tools · 3 files · suggested_status=方案评审 · actual=方案评审</text>
+  <rect class="red" x="354" y="506" width="860" height="72" rx="10"/><text class="text label" x="372" y="534">run_a82c74b1</text><text class="muted small" x="372" y="556">blocked · 42s · reason: 缺少目标仓库路径</text>
+
+  <text class="text title" x="354" y="626">Run Timeline</text>
+  <line class="line" x1="376" y1="652" x2="376" y2="812"/>
+  <circle cx="376" cy="664" r="7" fill="#2563eb"/><text class="text label" x="400" y="670">01 Prompt Built</text><text class="muted small" x="564" y="670">3ms · prompt.build · harness_observed</text>
+  <circle cx="376" cy="704" r="7" fill="#2563eb"/><text class="text label" x="400" y="710">02 Agent Started</text><text class="muted small" x="564" y="710">12ms · claude-code</text>
+  <circle cx="376" cy="744" r="7" fill="#12b76a"/><text class="text label" x="400" y="750">03 Read Artifact</text><text class="muted small" x="564" y="750">8ms · file.read · native_event</text>
+  <circle cx="376" cy="784" r="7" fill="#12b76a"/><text class="text label" x="400" y="790">04 Tool Call: Grep</text><text class="muted small" x="564" y="790">41ms · 12 matches · selected</text>
+  <circle cx="376" cy="824" r="7" fill="#7c3aed"/><text class="text label" x="400" y="830">05 Artifact Diff</text><text class="muted small" x="564" y="830">solution + validation changed</text>
+
+  <rect class="card" x="354" y="846" width="860" height="86" rx="14"/>
+  <text class="text title" x="374" y="876">Detail Drawer · Tool Call: Grep</text>
+  <text class="muted small" x="374" y="898">点击 Timeline / Stage / Run 后在下方展开详情，可关闭，不挤压主链路视图。</text>
+  <rect class="soft" x="1110" y="860" width="82" height="30" rx="8"/><text class="text small" x="1132" y="880">关闭</text>
+  <text class="muted xs" x="374" y="924">展开内容：Prompt / Tool Input / Tool Output / Artifact Diff / Raw JSON / Raw Log</text>
+  <path class="dash" d="M1025 330 C1000 364, 952 386, 870 412"/><text class="muted xs" x="754" y="370">点击阶段节点</text>
+  <path class="dash" d="M760 788 C820 830, 940 850, 1030 862"/><text class="muted xs" x="706" y="836">点击 span，下方展开 detail</text>
+</svg>

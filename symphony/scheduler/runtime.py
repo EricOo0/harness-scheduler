@@ -27,10 +27,37 @@ class SchedulerRuntime:
                 continue
             run_id = self.store.create_run(task["id"], stage, "running")
             try:
+                self.store.append_trace_step(
+                    run_id=run_id,
+                    task_id=task["id"],
+                    stage=stage,
+                    step_type="run.start",
+                    title="Run started",
+                    summary=f"Scheduler picked {spec['title']} for execution.",
+                    detail={"from_status": task["status"], "stage": stage, "stage_title": spec["title"]},
+                )
                 self.store.record_event(task["id"], "scheduler_picked", {"stage": stage, "from_status": task["status"], "run_id": run_id})
                 self.store.update_task_status(task["id"], spec["running"])
                 prompt = self.prompt_builder.build(task)
                 prompt_path = self._write_prompt_snapshot(task, run_id, prompt)
+                prompt_step_id = self.store.append_trace_step(
+                    run_id=run_id,
+                    task_id=task["id"],
+                    stage=stage,
+                    step_type="prompt.build",
+                    title="Start prompt",
+                    summary=f"Generated stage prompt snapshot: {prompt_path.name}",
+                    detail={"prompt_path": str(prompt_path), "prompt_chars": len(prompt), "prompt_preview": prompt[:2000]},
+                )
+                self.store.append_trace_artifact(
+                    run_id=run_id,
+                    step_id=prompt_step_id,
+                    artifact_type="prompt",
+                    title="Stage Prompt Snapshot",
+                    path=str(prompt_path),
+                    content_type="text/plain",
+                    metadata={"chars": len(prompt)},
+                )
                 self.store.record_event(task["id"], "prompt_written", {"run_id": run_id, "prompt_path": str(prompt_path)})
                 self.store.record_event(task["id"], "agent_started", {"run_id": run_id})
                 result, event_log_path = self.agent_runtime.run_stage(run_id=run_id, task=task, stage=stage, stage_spec=spec, prompt=prompt)
@@ -59,12 +86,37 @@ class SchedulerRuntime:
                     ),
                 )
                 self.store.update_run_paths(run_id, prompt_path=str(prompt_path), log_path=str(log_path))
-                self.store.finish_run(run_id, "completed")
+                self.store.update_trace_run(run_id, status="completed", summary=result.summary, suggested_status=result.suggested_status, external_run_id=result.external_session_id, error=result.error)
                 latest = self.store.get_task(task["id"]) or task
                 if latest["status"] == "已失败":
+                    self.store.append_trace_step(
+                        run_id=run_id,
+                        task_id=task["id"],
+                        stage=stage,
+                        step_type="scheduler.handoff",
+                        title="Scheduler handoff skipped",
+                        source="harness",
+                        summary="Task was manually marked as failed before handoff.",
+                        detail={"reason": "task already failed by user", "log_path": str(log_path)},
+                    )
                     self.store.record_event(task["id"], "scheduler_handoff_skipped", {"run_id": run_id, "reason": "task already failed by user", "log_path": str(log_path)})
                 else:
                     self.store.update_task_status(task["id"], handoff_status, blocked_reason=result.error if handoff_status == "已阻塞" else None)
+                    self.store.append_trace_step(
+                        run_id=run_id,
+                        task_id=task["id"],
+                        stage=stage,
+                        step_type="scheduler.handoff",
+                        title="Scheduler handoff",
+                        source="harness",
+                        summary=f"Moved task to {handoff_status}.",
+                        detail={
+                            "to_status": handoff_status,
+                            "suggested_status": result.suggested_status,
+                            "reason": handoff_reason,
+                            "log_path": str(log_path),
+                        },
+                    )
                     self.store.record_event(
                         task["id"],
                         "scheduler_handoff",
@@ -76,10 +128,32 @@ class SchedulerRuntime:
                             "log_path": str(log_path),
                         },
                     )
+                self.store.append_trace_artifact(run_id=run_id, artifact_type="log", title="Run Log", path=str(log_path), content_type="text/plain")
+                self.store.append_trace_step(
+                    run_id=run_id,
+                    task_id=task["id"],
+                    stage=stage,
+                    step_type="run.end",
+                    title="Run completed",
+                    summary=result.summary,
+                    detail={"status": "completed", "log_path": str(log_path), "event_log_path": str(event_log_path)},
+                )
+                self.store.finish_run(run_id, "completed")
                 processed += 1
             except Exception as exc:
                 log_path = self._write_run_log(task, run_id, f"run_id={run_id}\nstage={stage}\nresult=failed\nerror={exc}")
                 self.store.update_run_paths(run_id, log_path=str(log_path))
+                self.store.append_trace_artifact(run_id=run_id, artifact_type="log", title="Failed Run Log", path=str(log_path), content_type="text/plain")
+                self.store.append_trace_step(
+                    run_id=run_id,
+                    task_id=task["id"],
+                    stage=stage,
+                    step_type="run.error",
+                    title="Run failed",
+                    status="failed",
+                    summary=str(exc),
+                    detail={"error": str(exc), "log_path": str(log_path)},
+                )
                 self.store.finish_run(run_id, "failed", str(exc))
                 self.store.update_task_status(task["id"], "已阻塞", blocked_reason=str(exc))
                 self.store.record_event(task["id"], "scheduler_blocked", {"run_id": run_id, "error": str(exc), "log_path": str(log_path)})

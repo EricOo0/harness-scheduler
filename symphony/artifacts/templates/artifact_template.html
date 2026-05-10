@@ -227,6 +227,74 @@
       return mermaidLoading;
     }
 
+    function quoteMermaidSquareLabels(source) {
+      // Mermaid treats punctuation like "(" in unquoted labels as syntax tokens.
+      return source.replace(/(^|[\s>|-])([A-Za-z][\w-]*)\[([^\]\n"']*?)\]/g, (match, prefix, nodeId, label) => {
+        const escapedLabel = label.replace(/"/g, '&quot;');
+        return `${prefix}${nodeId}["${escapedLabel}"]`;
+      });
+    }
+
+    function safeMermaidId(value, fallback) {
+      let id = String(value || fallback || 'node').replace(/[^\w-]/g, '_');
+      if (!/^[A-Za-z_]/.test(id)) id = `n_${id}`;
+      return id;
+    }
+
+    function safeMermaidText(value) {
+      return String(value || '').replace(/"/g, '&quot;').replace(/\|/g, '/');
+    }
+
+    function mermaidNodeExpression(node, fallback) {
+      const id = safeMermaidId(node?.id, fallback);
+      const label = safeMermaidText(node?.label || node?.id || fallback);
+      const shape = String(node?.shape || 'rect');
+      if (shape === 'diamond') return `${id}{"${label}"}`;
+      if (shape === 'round') return `${id}("${label}")`;
+      return `${id}["${label}"]`;
+    }
+
+    function compileMermaidFlowchart(asset) {
+      const direction = String(asset.direction || 'TD').replace(/[^A-Z]/g, '') || 'TD';
+      const nodes = new Map();
+      (asset.nodes || []).forEach((node, index) => {
+        const id = safeMermaidId(node?.id, `node_${index + 1}`);
+        nodes.set(id, { ...node, id });
+      });
+      const lines = [`graph ${direction}`];
+      (asset.edges || []).forEach(edge => {
+        const fromId = safeMermaidId(edge?.from, 'from');
+        const toId = safeMermaidId(edge?.to, 'to');
+        const from = mermaidNodeExpression(nodes.get(fromId) || { id: fromId }, fromId);
+        const to = mermaidNodeExpression(nodes.get(toId) || { id: toId }, toId);
+        const label = edge?.label ? `|${safeMermaidText(edge.label)}|` : '';
+        lines.push(`  ${from} -->${label} ${to}`);
+      });
+      nodes.forEach((node, id) => {
+        if (!(asset.edges || []).some(edge => safeMermaidId(edge?.from) === id || safeMermaidId(edge?.to) === id)) {
+          lines.push(`  ${mermaidNodeExpression(node, id)}`);
+        }
+      });
+      return lines.join('\n');
+    }
+
+    function mermaidSourceFromAsset(asset) {
+      if (Array.isArray(asset?.nodes) || Array.isArray(asset?.edges)) return compileMermaidFlowchart(asset);
+      return quoteMermaidSquareLabels(String(asset?.source || '').trim());
+    }
+
+    async function renderMermaidSource(mermaid, id, source) {
+      try {
+        return await mermaid.render(id, source);
+      } catch (err) {
+        const normalized = quoteMermaidSquareLabels(source);
+        if (normalized !== source) {
+          return mermaid.render(`${id}-normalized`, normalized);
+        }
+        throw err;
+      }
+    }
+
     async function renderMermaidAssets() {
       const targets = [...document.querySelectorAll('[data-render="mermaid"][data-diagram-id]')].filter(target => target.dataset.rendered !== 'true');
       if (!targets.length) return;
@@ -244,13 +312,13 @@
       for (const [index, target] of targets.entries()) {
         const diagramId = target.dataset.diagramId || '';
         const asset = assets.get(diagramId);
-        const source = String(asset?.source || '').trim();
+        const source = mermaidSourceFromAsset(asset);
         target.innerHTML = '';
         showMermaidStatus(target, asset ? 'Mermaid 渲染中...' : `未找到 Mermaid asset：${diagramId}`, !asset);
         if (!asset || !source) continue;
         const id = `harness-mermaid-${taskId}-${Date.now()}-${index}`.replace(/[^a-zA-Z0-9_-]/g, '-');
         try {
-          const result = await mermaid.render(id, source);
+          const result = await renderMermaidSource(mermaid, id, source);
           const rendered = document.createElement('div');
           rendered.className = 'harness-mermaid-rendered';
           rendered.dataset.harnessRuntimeUi = 'true';
